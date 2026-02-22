@@ -25,7 +25,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
+          node-version: '18'
 
       - name: Install dependencies
         working-directory: frontend
@@ -33,9 +33,9 @@ jobs:
 
       - name: Build React app
         working-directory: frontend
+        run: npm run build
         env:
           CI: false
-        run: npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -43,7 +43,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: frontend/build
+          path: 'frontend/build'
 
   deploy:
     environment:
