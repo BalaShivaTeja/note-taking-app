@@ -1,7 +1,8 @@
+import os
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 from typing import List, Optional
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
@@ -9,9 +10,10 @@ from passlib.context import CryptContext
 import uvicorn
 
 # Security Configuration
-SECRET_KEY = "your-secret-key-change-this-in-production"
+# Use environment variable for secret key in production
+SECRET_KEY = os.environ.get("SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -40,6 +42,21 @@ class UserCreate(BaseModel):
     username: str
     password: str
 
+    @validator('username')
+    def username_must_be_valid(cls, v):
+        v = v.strip()
+        if len(v) < 3:
+            raise ValueError('Username must be at least 3 characters')
+        if len(v) > 50:
+            raise ValueError('Username must be at most 50 characters')
+        return v
+
+    @validator('password')
+    def password_must_be_strong(cls, v):
+        if len(v) < 6:
+            raise ValueError('Password must be at least 6 characters')
+        return v
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -49,10 +66,39 @@ class Note(BaseModel):
     title: str
     content: str
     created_at: str
+    updated_at: Optional[str] = None
 
 class NoteCreate(BaseModel):
     title: str
     content: str
+
+    @validator('title')
+    def title_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Title cannot be empty')
+        return v.strip()
+
+    @validator('content')
+    def content_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Content cannot be empty')
+        return v.strip()
+
+class NoteUpdate(BaseModel):
+    title: str
+    content: str
+
+    @validator('title')
+    def title_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Title cannot be empty')
+        return v.strip()
+
+    @validator('content')
+    def content_not_empty(cls, v):
+        if not v.strip():
+            raise ValueError('Content cannot be empty')
+        return v.strip()
 
 # Helper Functions
 def verify_password(plain_password, hashed_password):
@@ -106,22 +152,24 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
 @app.post("/signup", response_model=User)
 def signup(user: UserCreate):
     """Register a new user"""
-    if user.username in users_db:
+    username = user.username.strip().lower()
+    if username in users_db:
         raise HTTPException(status_code=400, detail="Username already registered")
     
     hashed_password = get_password_hash(user.password)
-    users_db[user.username] = {
-        "username": user.username,
+    users_db[username] = {
+        "username": username,
         "hashed_password": hashed_password
     }
-    notes_db[user.username] = []  # Initialize empty notes list for user
+    notes_db[username] = []  # Initialize empty notes list for user
     
-    return {"username": user.username}
+    return {"username": username}
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    """Login to get access token"""
-    user = authenticate_user(form_data.username, form_data.password)
+    """Login to get access token (OAuth2 form format)"""
+    username = form_data.username.strip().lower()
+    user = authenticate_user(username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -136,8 +184,9 @@ def login(form_data: OAuth2PasswordRequestForm = Depends()):
 
 @app.post("/login", response_model=Token)
 def login_json(credentials: UserCreate):
-    """Alternative login endpoint for JSON requests"""
-    user = authenticate_user(credentials.username, credentials.password)
+    """Login endpoint for JSON requests"""
+    username = credentials.username.strip().lower()
+    user = authenticate_user(username, credentials.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -164,11 +213,13 @@ def create_note(
     user_notes = notes_db.get(current_user, [])
     
     new_id = max([n["id"] for n in user_notes], default=0) + 1
+    now = datetime.now().isoformat()
     new_note = {
         "id": new_id, 
         "title": note.title, 
         "content": note.content,
-        "created_at": datetime.now().isoformat()
+        "created_at": now,
+        "updated_at": now
     }
     
     user_notes.append(new_note)
@@ -185,11 +236,31 @@ def get_note(note_id: int, current_user: str = Depends(get_current_user)):
             return note
     raise HTTPException(status_code=404, detail="Note not found")
 
+@app.put("/notes/{note_id}", response_model=Note)
+def update_note(
+    note_id: int,
+    note_update: NoteUpdate,
+    current_user: str = Depends(get_current_user)
+):
+    """Update a note by ID"""
+    user_notes = notes_db.get(current_user, [])
+    for i, note in enumerate(user_notes):
+        if note["id"] == note_id:
+            user_notes[i]["title"] = note_update.title
+            user_notes[i]["content"] = note_update.content
+            user_notes[i]["updated_at"] = datetime.now().isoformat()
+            notes_db[current_user] = user_notes
+            return user_notes[i]
+    raise HTTPException(status_code=404, detail="Note not found")
+
 @app.delete("/notes/{note_id}")
 def delete_note(note_id: int, current_user: str = Depends(get_current_user)):
     """Delete a note by ID"""
     user_notes = notes_db.get(current_user, [])
+    original_count = len(user_notes)
     notes_db[current_user] = [n for n in user_notes if n["id"] != note_id]
+    if len(notes_db[current_user]) == original_count:
+        raise HTTPException(status_code=404, detail="Note not found")
     return {"message": "Note deleted successfully"}
 
 @app.get("/me")
