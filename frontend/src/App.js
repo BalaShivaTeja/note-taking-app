@@ -1,85 +1,58 @@
 import React, { useState, useEffect } from 'react';
+import Auth from './components/Auth';
+import Notes from './components/Notes';
 import './App.css';
 
 const API_URL = 'http://localhost:8000';
 
 function App() {
-  const [notes, setNotes] = useState([]);
-  const [newNote, setNewNote] = useState({ title: '', content: '' });
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetchNotes();
-  }, []);
-
-  const fetchNotes = async () => {
-    try {
-      const response = await fetch(`${API_URL}/notes`);
-      const data = await response.json();
-      setNotes(data);
-    } catch (error) {
-      console.error('Error fetching notes:', error);
-    }
-  };
-
-  const handleAddNote = async (e) => {
-    e.preventDefault();
-    if (!newNote.title.trim() || !newNote.content.trim()) return;
-    try {
-      const response = await fetch(`${API_URL}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newNote),
+    if (token) {
+      // Verify token and get user info
+      fetch(`${API_URL}/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Invalid token');
+      })
+      .then(data => setUser(data))
+      .catch(() => {
+        // Token invalid, clear it
+        logout();
       });
-      if (response.ok) {
-        setNewNote({ title: '', content: '' });
-        fetchNotes();
-      }
-    } catch (error) {
-      console.error('Error adding note:', error);
     }
+  }, [token]);
+
+  const login = (newToken, username) => {
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    setUser({ username });
   };
 
-  const handleDeleteNote = async (id) => {
-    try {
-      await fetch(`${API_URL}/notes/${id}`, { method: 'DELETE' });
-      fetchNotes();
-    } catch (error) {
-      console.error('Error deleting note:', error);
-    }
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
   };
 
   return (
     <div className="app">
-      <h1>My Notes</h1>
-      <form onSubmit={handleAddNote} className="note-form">
-        <input
-          type="text"
-          placeholder="Note title..."
-          value={newNote.title}
-          onChange={(e) => setNewNote({ ...newNote, title: e.target.value })}
+      {!token ? (
+        <Auth onLogin={login} apiUrl={API_URL} />
+      ) : (
+        <Notes 
+          token={token} 
+          user={user} 
+          onLogout={logout} 
+          apiUrl={API_URL}
         />
-        <textarea
-          placeholder="Write your note here..."
-          value={newNote.content}
-          onChange={(e) => setNewNote({ ...newNote, content: e.target.value })}
-        />
-        <button type="submit">Add Note</button>
-      </form>
-      <div className="notes-list">
-        {notes.length === 0 ? (
-          <p>No notes yet. Create one above!</p>
-        ) : (
-          notes.map((note) => (
-            <div key={note.id} className="note-card">
-              <h3>{note.title}</h3>
-              <p>{note.content}</p>
-              <button className="delete-btn" onClick={() => handleDeleteNote(note.id)}>
-                Delete
-              </button>
-            </div>
-          ))
-        )}
-      </div>
+      )}
     </div>
   );
 }
