@@ -300,3 +300,93 @@ body {
   font-size: 1.2rem;
   padding: 40px;
 }
+
+
+/* Success Message */
+.success-message {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Note Actions */
+.note-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.edit-btn {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s;
+}
+
+.edit-btn:hover {
+  background: #5568d6;
+  transform: translateY(-1px);
+}
+
+/* Edit Note Form */
+.edit-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 5px;
+}
+
+.edit-actions button {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.cancel-btn {
+  background: #9e9e9e !important;
+}
+
+.cancel-btn:hover {
+  background: #757575 !important;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2) !important;
+}
+
+.note-form h3 {
+  font-size: 1.2rem;
+  color: #444;
+  margin-bottom: 15px;
+}
+
+/* Loading Screen */
+.loading-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  color: white;
+  font-size: 1.4rem;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .notes-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .note-actions {
+    flex-direction: column;
+  }
+
+  .edit-actions {
+    flex-direction: column;
+  }
+}
