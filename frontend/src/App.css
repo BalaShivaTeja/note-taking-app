@@ -1,96 +1,60 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+import React, { useState, useEffect } from 'react';
+import Auth from './components/Auth';
+import Notes from './components/Notes';
+import './App.css';
+
+const API_URL = 'http://localhost:8000';
+
+function App() {
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    if (token) {
+      // Verify token and get user info
+      fetch(`${API_URL}/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error('Invalid token');
+      })
+      .then(data => setUser(data))
+      .catch(() => {
+        // Token invalid, clear it
+        logout();
+      });
+    }
+  }, [token]);
+
+  const login = (newToken, username) => {
+    localStorage.setItem('token', newToken);
+    setToken(newToken);
+    setUser({ username });
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setToken(null);
+    setUser(null);
+  };
+
+  return (
+    <div className="app">
+      {!token ? (
+        <Auth onLogin={login} apiUrl={API_URL} />
+      ) : (
+        <Notes 
+          token={token} 
+          user={user} 
+          onLogout={logout} 
+          apiUrl={API_URL}
+        />
+      )}
+    </div>
+  );
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  padding: 20px;
-}
-
-.app { max-width: 800px; margin: 0 auto; }
-
-h1 { color: white; text-align: center; margin-bottom: 30px; font-size: 2.5rem; }
-
-.note-form {
-  background: white;
-  padding: 25px;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  margin-bottom: 30px;
-}
-
-.note-form input, .note-form textarea {
-  width: 100%;
-  padding: 12px;
-  margin-bottom: 15px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 16px;
-  transition: border-color 0.3s;
-}
-
-.note-form input:focus, .note-form textarea:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.note-form textarea { min-height: 100px; resize: vertical; }
-
-.note-form button {
-  width: 100%;
-  padding: 12px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.note-form button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(102,126,234,0.4);
-}
-
-.notes-list { display: grid; gap: 20px; }
-
-.note-card {
-  background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-  position: relative;
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.note-card h3 { color: #333; margin-bottom: 10px; font-size: 1.3rem; }
-.note-card p { color: #666; line-height: 1.6; }
-
-.delete-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: #ff4757;
-  color: white;
-  border: none;
-  padding: 8px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-
-.delete-btn:hover { background: #ff3344; }
-
-.notes-list > p { color: white; text-align: center; font-size: 1.2rem; opacity: 0.8; }
+export default App;
